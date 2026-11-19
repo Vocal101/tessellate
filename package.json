@@ -1,0 +1,11 @@
+{
+  "name": "tessellate",
+  "version": "1.0.0",
+  "description": "Original 1v1 real-time strategy for the browser with deterministic lockstep netcode, replays and a CPU opponent.",
+  "private": true,
+  "scripts": {
+    "test": "node tests/determinism.test.js 20",
+    "serve": "python scripts/devserver.py 8783"
+  },
+  "license": "MIT"
+}

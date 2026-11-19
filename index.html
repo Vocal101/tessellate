@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tessellate</title>
+<meta name="description" content="Tessellate — a geometric 1v1 real-time strategy game with deterministic lockstep netcode, replays and a CPU opponent.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2 30 26H2z' fill='%234fd1c5'/%3E%3Cpath d='M16 30 2 6h28z' fill='%23ff9152' opacity='.75'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<canvas id="view"></canvas>
+
+<!-- In-game HUD -->
+<div id="hud" class="hidden">
+  <div id="topbar">
+    <div class="stat" title="Lumen (resource)"><i class="ico-lumen"></i><b id="hRes">0</b></div>
+    <div class="stat" title="Supply used / cap"><i class="ico-sup"></i><b id="hSup">0/0</b></div>
+    <div class="stat" title="Workers"><i class="ico-mote"></i><b id="hWork">0</b></div>
+    <div class="grow"></div>
+    <div id="hClock" class="clock">00:00</div>
+    <div class="grow"></div>
+    <div id="hNet" class="net"></div>
+    <button id="hMenu" class="tbtn" title="Menu (F10)">Menu</button>
+  </div>
+  <div id="banner" class="hidden"></div>
+  <div id="toast"></div>
+  <div id="bottom">
+    <div id="mmWrap"><canvas id="minimap" width="200" height="200"></canvas></div>
+    <div id="selPanel"></div>
+    <div id="cmdCard"></div>
+  </div>
+  <div id="replayBar" class="hidden">
+    <button id="rbPlay" class="tbtn" title="Play / pause (Space)">❚❚</button>
+    <div id="rbSpeeds"></div>
+    <div id="rbTrack"><div id="rbFill"></div></div>
+    <span id="rbTime">00:00 / 00:00</span>
+    <select id="rbVision" title="Whose vision to show">
+      <option value="-1">Full vision</option><option value="0">Teal's view</option><option value="1">Ember's view</option>
+    </select>
+    <span id="rbVerify" class="badge">verifying…</span>
+  </div>
+  <div id="tip" class="hidden"></div>
+</div>
+
+<!-- Menus -->
+<div id="menu" class="screen">
+  <div class="title-wrap">
+    <svg class="logo" viewBox="0 0 120 104" aria-hidden="true">
+      <path d="M60 4 116 100H4z" fill="none" stroke="#4fd1c5" stroke-width="5"/>
+      <path d="M60 100 32 52h56z" fill="#ff9152"/>
+      <path d="M60 4 32 52h56z" fill="#4fd1c5" opacity=".35"/>
+    </svg>
+    <h1>TESSELLATE</h1>
+    <p class="tag">Two lattices. One grid. Every move in lockstep.</p>
+  </div>
+  <div class="cards">
+    <section class="card">
+      <h2>Skirmish</h2>
+      <p>Play a full match against the CPU.</p>
+      <div class="seg" id="diffSeg"><button data-v="easy">Easy</button><button data-v="normal" class="on">Normal</button><button data-v="hard">Hard</button></div>
+      <label class="field">Map seed <input id="seedIn" placeholder="random" maxlength="12"></label>
+      <button class="big" id="bPlay">Play vs CPU</button>
+      <button class="link" id="bWatch">Watch CPU vs CPU</button>
+    </section>
+    <section class="card">
+      <h2>Online 1v1</h2>
+      <p>Peer to peer. Only commands cross the wire.</p>
+      <button class="big" id="bHost">Host a room</button>
+      <div class="row"><input id="joinIn" placeholder="ROOM CODE" maxlength="6" autocomplete="off"><button id="bJoin">Join</button></div>
+      <div id="netMsg" class="msg"></div>
+    </section>
+    <section class="card">
+      <h2>Replays</h2>
+      <p>Seed + input log, re-simulated and hash-verified.</p>
+      <button class="big" id="bLast">Watch last match</button>
+      <button id="bLoad">Load replay file…</button>
+      <input type="file" id="fileIn" accept=".json,application/json" class="hidden">
+      <div id="repMsg" class="msg"></div>
+    </section>
+  </div>
+  <button class="link" id="bHelp">How to play</button>
+  <div class="foot">An original game. v<span id="ver"></span></div>
+</div>
+
+<div id="lobby" class="screen hidden">
+  <div class="panel">
+    <h2>Room code</h2>
+    <div id="code" class="code">·····</div>
+    <p id="lobbyMsg">Share this code with your opponent.</p>
+    <div class="row center"><button id="bCopy">Copy code</button><button id="bCancel">Cancel</button></div>
+  </div>
+</div>
+
+<div id="help" class="screen hidden">
+  <div class="panel wide">
+    <h2>How to play</h2>
+    <div class="cols">
+      <div>
+        <h3>Goal</h3>
+        <p>Destroy every enemy structure. Mine <b class="lumen">Lumen</b> with Motes, build production, and out-think the other lattice.</p>
+        <h3>Controls</h3>
+        <ul class="keys">
+          <li><kbd>Left drag</kbd> box-select · <kbd>Shift</kbd> add · <kbd>Double-click</kbd> all of a type</li>
+          <li><kbd>Right click</kbd> move / attack / mine / help build / set rally</li>
+          <li><kbd>A</kbd> + click attack-move · <kbd>S</kbd> stop</li>
+          <li><kbd>Ctrl</kbd>+<kbd>1-9</kbd> set group · <kbd>1-9</kbd> recall (twice to jump)</li>
+          <li><kbd>Q W E R T Y</kbd> command card · <kbd>X</kbd> cancel last in queue</li>
+          <li><kbd>Arrows</kbd> / screen edge / middle drag scroll · wheel zoom</li>
+          <li><kbd>Space</kbd> jump to selection · <kbd>.</kbd> idle Mote · <kbd>F10</kbd> menu</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Units</h3>
+        <table id="unitTable"></table>
+        <p class="small">Buildings: Core (Motes, drop-off, +10 supply) · Conduit (+8 supply) · Forge (Pike, Glint) · Foundry (Runner, Bastion) · Spire (Prism) · Sentinel (tower).</p>
+      </div>
+    </div>
+    <div class="row center"><button id="bHelpClose">Back</button></div>
+  </div>
+</div>
+
+<div id="pause" class="screen dim hidden">
+  <div class="panel">
+    <h2 id="pauseTitle">Paused</h2>
+    <div class="col">
+      <button id="bResume" class="big">Resume</button>
+      <button id="bGG">Surrender</button>
+      <button id="bQuit">Quit to menu</button>
+    </div>
+  </div>
+</div>
+
+<div id="end" class="screen dim hidden">
+  <div class="panel">
+    <h2 id="endTitle">Victory</h2>
+    <p id="endSub"></p>
+    <table id="endStats" class="stats"></table>
+    <div class="row center">
+      <button id="bEndReplay" class="big">Watch replay</button>
+      <button id="bEndSave">Save replay</button>
+      <button id="bEndMenu">Main menu</button>
+    </div>
+  </div>
+</div>
+
+<script src="lib/peerjs.min.js"></script>
+<script src="js/sim/fixed.js"></script>
+<script src="js/sim/defs.js"></script>
+<script src="js/sim/map.js"></script>
+<script src="js/sim/flow.js"></script>
+<script src="js/sim/world.js"></script>
+<script src="js/sim/ai.js"></script>
+<script src="js/lockstep.js"></script>
+<script src="js/render.js"></script>
+<script src="js/net.js"></script>
+<script src="js/hud.js"></script>
+<script src="js/input.js"></script>
+<script src="js/game.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/dev.js"></script>
+</body>
+</html>
